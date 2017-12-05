@@ -1,23 +1,25 @@
 package org.apache.ignite.ml.descents;
 
 import org.apache.ignite.ml.math.Vector;
+import org.apache.ignite.ml.math.functions.IgniteToDoubleFunction;
 
+import java.util.ArrayList;
 import java.util.function.Function;
 
 /**
  * Created by Виктория on 03.12.2017.
  */
 abstract public class BaseGradientDescent implements Descent{
-    Function<Vector, Double> function;
-    Function<Vector, Double> derivative;
+    protected IgniteToDoubleFunction<Vector> function;
+    protected ArrayList<IgniteToDoubleFunction<Vector>> derivatives;
 
-    public BaseGradientDescent(Function<Vector, Double> function) {
+    public BaseGradientDescent(IgniteToDoubleFunction<Vector> function) {
         this.function = function;
     }
 
-    public BaseGradientDescent(Function<Vector, Double> function, Function<Vector, Double> derivative) {
+    public BaseGradientDescent(IgniteToDoubleFunction<Vector> function, ArrayList<IgniteToDoubleFunction<Vector>> derivatives) {
         this.function = function;
-        this.derivative = derivative;
+        this.derivatives = derivatives;
     }
 
     protected Vector descent(Vector point, double delta, int maxIterations) {
