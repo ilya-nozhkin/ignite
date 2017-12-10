@@ -28,7 +28,7 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
  */
 public class BaseDecisionTreeTest extends GridCommonAbstractTest {
     /** Count of nodes. */
-    private static final int NODE_COUNT = 4;
+    private static final int NODE_COUNT = 1;
 
     /** Grid instance. */
     protected Ignite ignite;

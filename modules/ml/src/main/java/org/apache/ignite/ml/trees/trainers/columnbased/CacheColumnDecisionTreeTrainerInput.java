@@ -120,6 +120,11 @@ public abstract class CacheColumnDecisionTreeTrainerInput<K, V> implements Colum
     }
 
     /** {@inheritDoc} */
+    @Override public int samplesCount() {
+        return samplesCnt;
+    }
+
+    /** {@inheritDoc} */
     @Override public Object affinityKey(int idx, Ignite ignite) {
         return ignite.affinity(cacheName).affinityKey(keyMapper.apply(idx));
     }

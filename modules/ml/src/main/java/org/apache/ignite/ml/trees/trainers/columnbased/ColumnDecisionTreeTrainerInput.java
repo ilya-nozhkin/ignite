@@ -47,6 +47,9 @@ public interface ColumnDecisionTreeTrainerInput {
     /** Number of features. */
     int featuresCount();
 
+    /** Number of samples. */
+    int samplesCount();
+
     /**
      * Get affinity key for the given column index.
      * Affinity key should be pure-functionally dependent from idx.
