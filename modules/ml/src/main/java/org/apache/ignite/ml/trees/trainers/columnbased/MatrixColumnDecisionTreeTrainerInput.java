@@ -19,12 +19,14 @@ package org.apache.ignite.ml.trees.trainers.columnbased;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.cache.Cache;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.ml.math.Vector;
 import org.apache.ignite.ml.math.distributed.keys.RowColMatrixKey;
 import org.apache.ignite.ml.math.distributed.keys.impl.SparseMatrixKey;
 import org.apache.ignite.ml.math.functions.IgniteFunction;
@@ -39,6 +41,9 @@ import org.jetbrains.annotations.NotNull;
  * should contain samples in rows last position in row being label of this sample.
  */
 public class MatrixColumnDecisionTreeTrainerInput extends CacheColumnDecisionTreeTrainerInput<RowColMatrixKey, Map<Integer, Double>> {
+    /** Source matrix. */
+    private SparseDistributedMatrix m;
+
     /**
      * @param m Sparse SparseDistributedMatrix should be in {@link StorageConstants#COLUMN_STORAGE_MODE}
      * containing samples in rows last position in row being label of this sample.
@@ -54,6 +59,22 @@ public class MatrixColumnDecisionTreeTrainerInput extends CacheColumnDecisionTre
             catFeaturesInfo,
             m.columnSize() - 1,
             m.rowSize());
+        this.m = m;
+    }
+
+    @Override public Stream<IgniteBiTuple<Integer, Vector>> samples() {
+        return Stream.generate(new Supplier<IgniteBiTuple<Integer, Vector>>() {
+                private int idx = 0;
+
+                @Override
+                public IgniteBiTuple<Integer, Vector> get() {
+                    int idx = this.idx;
+                    Vector row =  m.viewRow(idx);
+                    Vector features = row.viewPart(0, row.size() - 1);
+                    this.idx++;
+                    return new IgniteBiTuple<>(idx, features);
+                }
+            }).limit(m.rowSize());
     }
 
     /** Values mapper. See {@link CacheColumnDecisionTreeTrainerInput#valuesMapper} */

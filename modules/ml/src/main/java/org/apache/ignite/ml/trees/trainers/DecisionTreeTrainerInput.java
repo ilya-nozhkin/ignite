@@ -13,7 +13,7 @@ public interface DecisionTreeTrainerInput {
      *
      * @return
      */
-    Stream<IgniteBiTuple<Integer, Vector>> features();
+    Stream<IgniteBiTuple<Integer, Vector>> samples();
 
     /**
      * Labels.

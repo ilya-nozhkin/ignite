@@ -21,11 +21,12 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.ml.trees.trainers.DecisionTreeTrainerInput;
 
 /**
  * Input for {@link ColumnDecisionTreeTrainer}.
  */
-public interface ColumnDecisionTreeTrainerInput {
+public interface ColumnDecisionTreeTrainerInput extends DecisionTreeTrainerInput {
     /**
      * Projection of data on feature with the given index.
      *
@@ -33,22 +34,6 @@ public interface ColumnDecisionTreeTrainerInput {
      * @return Projection of data on feature with the given index.
      */
     Stream<IgniteBiTuple<Integer, Double>> values(int idx);
-
-    /**
-     * Labels.
-     *
-     * @param ignite Ignite instance.
-     */
-    double[] labels(Ignite ignite);
-
-    /** Information about which features are categorical in the form of feature index -> number of categories. */
-    Map<Integer, Integer> catFeaturesInfo();
-
-    /** Number of features. */
-    int featuresCount();
-
-    /** Number of samples. */
-    int samplesCount();
 
     /**
      * Get affinity key for the given column index.

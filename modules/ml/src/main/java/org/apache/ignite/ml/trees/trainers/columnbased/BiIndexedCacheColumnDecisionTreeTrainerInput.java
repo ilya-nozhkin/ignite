@@ -24,6 +24,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.ml.math.Vector;
 
 /**
  * Adapter for column decision tree trainer for bi-indexed cache.
@@ -53,5 +54,11 @@ public class BiIndexedCacheColumnDecisionTreeTrainerInput extends CacheColumnDec
     /** {@inheritDoc} */
     @Override public Object affinityKey(int idx, Ignite ignite) {
         return idx;
+    }
+
+    //TODO: implement this method
+    @Override
+    public Stream<IgniteBiTuple<Integer, Vector>> samples() {
+        return null;
     }
 }

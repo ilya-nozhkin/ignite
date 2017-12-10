@@ -9,41 +9,34 @@ import org.apache.ignite.ml.math.VectorUtils;
 import org.apache.ignite.ml.math.distributed.CacheUtils;
 import org.apache.ignite.ml.math.distributed.keys.impl.SparseMatrixKey;
 import org.apache.ignite.ml.math.functions.IgniteBiFunction;
-import org.apache.ignite.ml.math.functions.IgniteFunction;
 import org.apache.ignite.ml.math.impls.matrix.SparseDistributedMatrix;
 import org.apache.ignite.ml.math.impls.storage.matrix.SparseDistributedMatrixStorage;
 import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
-import org.apache.ignite.ml.trees.ContinuousRegionInfo;
-import org.apache.ignite.ml.trees.ContinuousSplitCalculator;
 import org.apache.ignite.ml.trees.models.BoostedTreesModel;
 import org.apache.ignite.ml.trees.models.DecisionTreeModel;
-import org.apache.ignite.ml.trees.trainers.columnbased.ColumnDecisionTreeTrainer;
+import org.apache.ignite.ml.trees.trainers.DecisionTreeTrainerInput;
 import org.apache.ignite.ml.trees.trainers.columnbased.ColumnDecisionTreeTrainerInput;
 
 import javax.cache.Cache;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
 
-public class ColumnBoostingDecisionTreesTrainer<D extends ContinuousRegionInfo>
-        implements Trainer<BoostedTreesModel, ColumnDecisionTreeTrainerInput> {
-    private ColumnDecisionTreeTrainer trainer;
+public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerInput,
+                                                  I extends BoostingDecisionTreesTrainerInput<V>>
+                    implements Trainer<BoostedTreesModel, I> {
+    private Trainer<DecisionTreeModel, V> trainer;
     private Ignite ignite;
     private int maxIterations = 10;
 
     private double[] fullPrediction;
     private double[] labels;
 
-
-    public ColumnBoostingDecisionTreesTrainer(int maxDepth,
-                IgniteFunction<ColumnDecisionTreeTrainerInput, ? extends ContinuousSplitCalculator<D>> continuousCalculatorProvider,
-                IgniteFunction<ColumnDecisionTreeTrainerInput, IgniteFunction<DoubleStream, Double>> categoricalCalculatorProvider,
-                IgniteFunction<DoubleStream, Double> regCalc, Ignite ignite) {
-        this.trainer = new ColumnDecisionTreeTrainer(maxDepth, continuousCalculatorProvider,
-                categoricalCalculatorProvider, regCalc, ignite);
+    public GradientBoostingDecisionTreesTrainer(Trainer<DecisionTreeModel, V> treeTrainer, Ignite ignite) {
+        this.trainer = treeTrainer;
         this.ignite = ignite;
     }
 
@@ -101,32 +94,32 @@ public class ColumnBoostingDecisionTreesTrainer<D extends ContinuousRegionInfo>
         }
     }
 
-    private SparseDistributedMatrix createSamplesMatrix(ColumnDecisionTreeTrainerInput input) {
+    private SparseDistributedMatrix createSamplesMatrix(V input) {
         SparseDistributedMatrix samples = new SparseDistributedMatrix(input.samplesCount(), input.featuresCount(),
                 StorageConstants.ROW_STORAGE_MODE, StorageConstants.RANDOM_ACCESS_MODE);
 
-        double[][] features = new double[input.samplesCount()][input.featuresCount()];
-        for (int j = 0; j < input.featuresCount(); j++) {
-            final int idx = j;
-            input.values(j).forEach(tuple -> features[tuple.get1()][idx] = tuple.get2());
-        }
+        double[] vectorData = new double[input.featuresCount()];
+        input.samples().forEach(sample -> {
+            int idx = sample.get1();
+            Vector features = sample.get2();
 
-        for (int i = 0; i < input.samplesCount(); i++) {
-            samples.setRow(i, features[i]);
-        }
+            for (int i = 0; i < features.size(); i++) {
+                vectorData[i] = features.getX(i);
+            }
+
+            samples.setRow(idx, vectorData);
+        });
 
         return samples;
     }
 
     @Override
-    public BoostedTreesModel train(ColumnDecisionTreeTrainerInput input) {
-            fullPrediction = new double[input.samplesCount()];
+    public BoostedTreesModel train(I input) {
+            fullPrediction = new double[input.getInput().samplesCount()];
 
-            SparseDistributedMatrix samples = createSamplesMatrix(input);
+            SparseDistributedMatrix samples = createSamplesMatrix(input.getInput());
 
-            this.labels = input.labels(ignite);
-
-            ColumnDecisionTreeTrainerInputProxy proxy = new ColumnDecisionTreeTrainerInputProxy(input, ignite);
+            this.labels = Arrays.copyOf(input.getInput().labels(ignite), input.getInput().samplesCount());
 
             double residuals[] = new double[this.labels.length];
 
@@ -135,9 +128,9 @@ public class ColumnBoostingDecisionTreesTrainer<D extends ContinuousRegionInfo>
 
             for (int i = 0; i < maxIterations; i++) {
                 computeGradient(residuals);
-                proxy.substituteLabels(residuals);
+                input.substituteLabels(residuals);
 
-                DecisionTreeModel tree = trainer.train(proxy);
+                DecisionTreeModel tree = trainer.train(input.getInput());
                 double[] newPrediction = computePrediction(tree, samples);
 
                 double weight = computeWeight();
@@ -149,52 +142,5 @@ public class ColumnBoostingDecisionTreesTrainer<D extends ContinuousRegionInfo>
             }
 
         return new BoostedTreesModel(trees, weights);
-    }
-
-
-
-
-    private class ColumnDecisionTreeTrainerInputProxy implements ColumnDecisionTreeTrainerInput {
-        private ColumnDecisionTreeTrainerInput input;
-        private double[] substitutedLabels;
-
-        ColumnDecisionTreeTrainerInputProxy(ColumnDecisionTreeTrainerInput input, Ignite ignite) {
-            this.input = input;
-            this.substitutedLabels = input.labels(ignite);
-        }
-
-        public void substituteLabels(double substitutedLabels[]) {
-            this.substitutedLabels = substitutedLabels;
-        }
-
-        @Override
-        public Stream<IgniteBiTuple<Integer, Double>> values(int idx) {
-            return input.values(idx);
-        }
-
-        @Override
-        public double[] labels(Ignite ignite) {
-            return substitutedLabels;
-        }
-
-        @Override
-        public Map<Integer, Integer> catFeaturesInfo() {
-            return input.catFeaturesInfo();
-        }
-
-        @Override
-        public int featuresCount() {
-            return input.featuresCount();
-        }
-
-        @Override
-        public int samplesCount() {
-            return input.samplesCount();
-        }
-
-        @Override
-        public Object affinityKey(int idx, Ignite ignite) {
-            return input.affinityKey(idx, ignite);
-        }
     }
 }
