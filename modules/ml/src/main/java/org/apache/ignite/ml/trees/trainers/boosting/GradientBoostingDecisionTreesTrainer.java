@@ -40,6 +40,7 @@ public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerI
         this.ignite = ignite;
     }
 
+    //for quadratic deviations?
     private void computeGradient(double residuals[]) {
         double sum = 0.0;
         for (int i = 0; i < residuals.length; i++) {
@@ -84,6 +85,7 @@ public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerI
         return prediction;
     }
 
+    //how to compute?
     private double computeWeight() {
         return 1;
     }
