@@ -3,10 +3,6 @@ package org.apache.ignite.ml.trees.loss;
 import org.apache.ignite.ml.math.Vector;
 import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
 
-/**
- * Created by Виктория on 12.12.2017.
- * Lq
- */
 public class QuantileLoss implements LossFunction, LinearMinimizible {
     private double quantile = 0.25;
 
@@ -17,7 +13,7 @@ public class QuantileLoss implements LossFunction, LinearMinimizible {
     }
 
     @Override
-    public Vector computeGradient(Vector labels, Vector predictions) {
+    public Vector invGradient(Vector labels, Vector predictions) {
         Vector gradient = labels.minus(predictions);
         for (int i = 0; i < labels.size(); i++) {
             double signum = Math.signum(gradient.get(i));
@@ -39,11 +35,7 @@ public class QuantileLoss implements LossFunction, LinearMinimizible {
     }
 
     @Override
-    public double minimize(Vector point, Vector increment) {
-        double minimizeCoefficient = 0;
-        for (int i = 0; i < point.size(); i++) {
-            minimizeCoefficient -= point.get(i) * (1 / increment.get(i));
-        }
-        return minimizeCoefficient;
+    public double minimize(Vector labels, Vector predictions, Vector direction) {
+        return 0;
     }
 }

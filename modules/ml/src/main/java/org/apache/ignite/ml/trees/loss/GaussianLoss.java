@@ -3,13 +3,9 @@ package org.apache.ignite.ml.trees.loss;
 import org.apache.ignite.ml.math.Vector;
 import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
 
-/**
- * Created by Виктория on 12.12.2017.
- * L2
- */
 public class GaussianLoss implements LossFunction, LinearMinimizible {
     @Override
-    public Vector computeGradient(Vector labels, Vector predictions) {
+    public Vector invGradient(Vector labels, Vector predictions) {
         return labels.minus(predictions);
     }
 
@@ -20,11 +16,8 @@ public class GaussianLoss implements LossFunction, LinearMinimizible {
     }
 
     @Override
-    public double minimize(Vector point, Vector increment) {
-        double minimizeCoefficient = 0;
-        for (int i = 0; i < point.size(); i++) {
-            minimizeCoefficient -= point.get(i) * (1 / increment.get(i));
-        }
-        return minimizeCoefficient;
+    public double minimize(Vector labels, Vector predictions, Vector direction) {
+        Vector diff = labels.minus(predictions);
+        return diff.dot(direction) / direction.dot(direction);
     }
 }

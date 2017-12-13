@@ -5,7 +5,7 @@ import org.apache.ignite.ml.math.StorageConstants;
 import org.apache.ignite.ml.math.Tracer;
 import org.apache.ignite.ml.math.impls.matrix.SparseDistributedMatrix;
 import org.apache.ignite.ml.trees.loss.GaussianLoss;
-import org.apache.ignite.ml.trees.loss.LossFunction;
+import org.apache.ignite.ml.trees.loss.LaplacianLoss;
 import org.apache.ignite.ml.trees.trainers.boosting.ColumnBoostingDecisionTreesTrainerInput;
 import org.apache.ignite.ml.trees.trainers.boosting.GradientBoostingDecisionTreesTrainer;
 import org.apache.ignite.ml.trees.trainers.columnbased.ColumnDecisionTreeTrainer;
@@ -13,14 +13,10 @@ import org.apache.ignite.ml.trees.trainers.columnbased.MatrixColumnDecisionTreeT
 import org.apache.ignite.ml.trees.trainers.columnbased.contsplitcalcs.ContinuousSplitCalculators;
 import org.apache.ignite.ml.trees.trainers.columnbased.regcalcs.RegionCalculators;
 
-import java.awt.*;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Random;
 
-/**
- * Created by kroonk on 09.12.17.
- */
 public class BoostingDecisionTreeTrainerTest extends BaseDecisionTreeTest {
     public void test1() {
         IgniteUtils.setCurrentIgniteName(ignite.configuration().getIgniteInstanceName());
@@ -32,14 +28,21 @@ public class BoostingDecisionTreeTrainerTest extends BaseDecisionTreeTest {
 
         double[] data = new double[2];
         for (int i = 0; i < samplesCnt; i++) {
-            data[0] = 20 * rnd.nextDouble() * Math.PI * 2.0;
+            data[0] = 5 * rnd.nextDouble() * Math.PI * 2.0;
             data[1] = Math.cos(data[0]) > 0 ? 1 : 0;
             samples.setRow(i, data);
         }
 
+        try {
+            Tracer.saveAsCsv(samples, "%.6f", "/home/kroonk/gbdt/matrix.csv");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         GaussianLoss loss = new GaussianLoss();
-        ColumnDecisionTreeTrainer baseTrainer = new ColumnDecisionTreeTrainer(5,
-                ContinuousSplitCalculators.GINI.apply(ignite), RegionCalculators.GINI, RegionCalculators.MEAN, ignite);
+        LaplacianLoss lap = new LaplacianLoss();
+        ColumnDecisionTreeTrainer baseTrainer = new ColumnDecisionTreeTrainer(4,
+                ContinuousSplitCalculators.VARIANCE, RegionCalculators.VARIANCE, RegionCalculators.MEAN, ignite);
         GradientBoostingDecisionTreesTrainer trainer = new GradientBoostingDecisionTreesTrainer(baseTrainer, loss, ignite);
 
         trainer.train(new ColumnBoostingDecisionTreesTrainerInput(new MatrixColumnDecisionTreeTrainerInput(samples, new HashMap<>())));

@@ -1,9 +1,9 @@
 package org.apache.ignite.ml.trees.trainers.boosting;
 
 import org.apache.ignite.Ignite;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.ml.Trainer;
 import org.apache.ignite.ml.math.StorageConstants;
+import org.apache.ignite.ml.math.Tracer;
 import org.apache.ignite.ml.math.Vector;
 import org.apache.ignite.ml.math.VectorUtils;
 import org.apache.ignite.ml.math.distributed.CacheUtils;
@@ -17,15 +17,13 @@ import org.apache.ignite.ml.trees.loss.LossFunction;
 import org.apache.ignite.ml.trees.models.BoostedTreesModel;
 import org.apache.ignite.ml.trees.models.DecisionTreeModel;
 import org.apache.ignite.ml.trees.trainers.DecisionTreeTrainerInput;
-import org.apache.ignite.ml.trees.trainers.columnbased.ColumnDecisionTreeTrainerInput;
 
 import javax.cache.Cache;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
 
 public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerInput,
                                                   I extends BoostingDecisionTreesTrainerInput<V>,
@@ -73,14 +71,13 @@ public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerI
         predictionMap.forEach((key, value) -> newPrediction.setX(key, value));
     }
 
-    //how to compute?
-    private double computeWeight() {
-        return 1;
+    private double computeWeight(Vector labels, Vector fullPrediction, Vector newPrediction) {
+        return loss.minimize(labels, fullPrediction, newPrediction);
     }
 
     private void updatePrediction(Vector fullPrediction, Vector newPrediction, double weight) {
         for (int i = 0; i < newPrediction.size(); i++) {
-            fullPrediction.setX(i, newPrediction.getX(i) * weight);
+            fullPrediction.setX(i, fullPrediction.getX(i) + newPrediction.getX(i) * weight);
         }
     }
 
@@ -119,18 +116,27 @@ public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerI
         ArrayList<DecisionTreeModel> trees = new ArrayList<>();
 
         for (int i = 0; i < maxIterations; i++) {
-            Vector residuals = loss.computeGradient(labels, fullPrediction);
+            Vector residuals = loss.invGradient(labels, fullPrediction);
             input.substituteLabels(residuals.getStorage().data());
 
             DecisionTreeModel tree = trainer.train(input.getInput());
             computePrediction(newPrediction, tree, samples);
 
-            double weight = computeWeight();
+            double weight = computeWeight(labels, fullPrediction, newPrediction);
 
             weights.add(weight);
             trees.add(tree);
 
             updatePrediction(fullPrediction, newPrediction, weight);
+            System.out.print(loss.apply(labels, fullPrediction));
+            System.out.print(" ");
+            System.out.println(weight);
+
+            try {
+                Tracer.saveAsCsv(fullPrediction, "%.6f", "/home/kroonk/gbdt/prediction_" + Integer.toString(i) + ".csv");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
         return new BoostedTreesModel(trees, weights);
