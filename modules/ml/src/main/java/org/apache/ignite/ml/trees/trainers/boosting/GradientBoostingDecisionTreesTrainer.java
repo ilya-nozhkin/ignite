@@ -12,6 +12,8 @@ import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.impls.matrix.SparseDistributedMatrix;
 import org.apache.ignite.ml.math.impls.storage.matrix.SparseDistributedMatrixStorage;
 import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
+import org.apache.ignite.ml.trees.loss.LinearMinimizible;
+import org.apache.ignite.ml.trees.loss.LossFunction;
 import org.apache.ignite.ml.trees.models.BoostedTreesModel;
 import org.apache.ignite.ml.trees.models.DecisionTreeModel;
 import org.apache.ignite.ml.trees.trainers.DecisionTreeTrainerInput;
@@ -26,31 +28,21 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerInput,
-                                                  I extends BoostingDecisionTreesTrainerInput<V>>
+                                                  I extends BoostingDecisionTreesTrainerInput<V>,
+                                                  F extends LossFunction & LinearMinimizible>
                     implements Trainer<BoostedTreesModel, I> {
     private Trainer<DecisionTreeModel, V> trainer;
     private Ignite ignite;
+    private F loss;
     private int maxIterations = 10;
 
-    private double[] fullPrediction;
-    private double[] labels;
-
-    public GradientBoostingDecisionTreesTrainer(Trainer<DecisionTreeModel, V> treeTrainer, Ignite ignite) {
+    public GradientBoostingDecisionTreesTrainer(Trainer<DecisionTreeModel, V> treeTrainer, F loss, Ignite ignite) {
         this.trainer = treeTrainer;
         this.ignite = ignite;
+        this.loss = loss;
     }
 
-    //for quadratic deviations?
-    private void computeGradient(double residuals[]) {
-        double sum = 0.0;
-        for (int i = 0; i < residuals.length; i++) {
-            residuals[i] = labels[i] - fullPrediction[i]; // * 2
-            sum += residuals[i] * residuals[i];
-        }
-        System.out.println(sum);
-    }
-
-    private double[] computePrediction(DecisionTreeModel model, SparseDistributedMatrix samples) {
+    private void computePrediction(Vector newPrediction, DecisionTreeModel model, SparseDistributedMatrix samples) {
         String cacheName = ((SparseDistributedMatrixStorage) samples.getStorage()).cacheName();
         UUID uuid = samples.getUUID();
 
@@ -78,11 +70,7 @@ public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerI
                 },
                 () -> new ConcurrentHashMap<>());
 
-        int samplesCnt = samples.rowSize();
-        double[] prediction = new double[samplesCnt];
-        predictionMap.forEach((key, value) -> prediction[key] = value);
-
-        return prediction;
+        predictionMap.forEach((key, value) -> newPrediction.setX(key, value));
     }
 
     //how to compute?
@@ -90,9 +78,9 @@ public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerI
         return 1;
     }
 
-    private void updatePrediction(double[] newPrediction, double weight) {
-        for (int i = 0; i < newPrediction.length; i++) {
-            fullPrediction[i] += newPrediction[i] * weight;
+    private void updatePrediction(Vector fullPrediction, Vector newPrediction, double weight) {
+        for (int i = 0; i < newPrediction.size(); i++) {
+            fullPrediction.setX(i, newPrediction.getX(i) * weight);
         }
     }
 
@@ -117,31 +105,33 @@ public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerI
 
     @Override
     public BoostedTreesModel train(I input) {
-            fullPrediction = new double[input.getInput().samplesCount()];
+        int numSamples = input.getInput().samplesCount();
 
-            SparseDistributedMatrix samples = createSamplesMatrix(input.getInput());
+        Vector fullPrediction = new DenseLocalOnHeapVector(numSamples);
+        Vector newPrediction = new DenseLocalOnHeapVector(numSamples);
+        Vector labels = new DenseLocalOnHeapVector(numSamples);
 
-            this.labels = Arrays.copyOf(input.getInput().labels(ignite), input.getInput().samplesCount());
+        SparseDistributedMatrix samples = createSamplesMatrix(input.getInput());
 
-            double residuals[] = new double[this.labels.length];
+        labels.assign(input.getInput().labels(ignite));
 
-            ArrayList<Double> weights = new ArrayList<>();
-            ArrayList<DecisionTreeModel> trees = new ArrayList<>();
+        ArrayList<Double> weights = new ArrayList<>();
+        ArrayList<DecisionTreeModel> trees = new ArrayList<>();
 
-            for (int i = 0; i < maxIterations; i++) {
-                computeGradient(residuals);
-                input.substituteLabels(residuals);
+        for (int i = 0; i < maxIterations; i++) {
+            Vector residuals = loss.computeGradient(labels, fullPrediction);
+            input.substituteLabels(residuals.getStorage().data());
 
-                DecisionTreeModel tree = trainer.train(input.getInput());
-                double[] newPrediction = computePrediction(tree, samples);
+            DecisionTreeModel tree = trainer.train(input.getInput());
+            computePrediction(newPrediction, tree, samples);
 
-                double weight = computeWeight();
+            double weight = computeWeight();
 
-                weights.add(weight);
-                trees.add(tree);
+            weights.add(weight);
+            trees.add(tree);
 
-                updatePrediction(newPrediction, weight);
-            }
+            updatePrediction(fullPrediction, newPrediction, weight);
+        }
 
         return new BoostedTreesModel(trees, weights);
     }
