@@ -1,9 +1,8 @@
 package org.apache.ignite.ml.trees.loss;
 
 import org.apache.ignite.ml.math.Vector;
-import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
 
-public class QuantileLoss implements LossFunction, LinearMinimizible {
+public class QuantileLoss implements LossFunction, LinearlyMinimizable {
     private double quantile = 0.25;
 
     public QuantileLoss(double quantile) {

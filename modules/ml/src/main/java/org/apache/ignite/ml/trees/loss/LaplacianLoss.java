@@ -1,9 +1,8 @@
 package org.apache.ignite.ml.trees.loss;
 
 import org.apache.ignite.ml.math.Vector;
-import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
 
-public class LaplacianLoss implements LossFunction, LinearMinimizible {
+public class LaplacianLoss implements LossFunction, LinearlyMinimizable {
     @Override
     public Vector invGradient(Vector labels, Vector predictions) {
         Vector gradient = labels.minus(predictions);

@@ -12,7 +12,7 @@ import org.apache.ignite.ml.math.functions.IgniteBiFunction;
 import org.apache.ignite.ml.math.impls.matrix.SparseDistributedMatrix;
 import org.apache.ignite.ml.math.impls.storage.matrix.SparseDistributedMatrixStorage;
 import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
-import org.apache.ignite.ml.trees.loss.LinearMinimizible;
+import org.apache.ignite.ml.trees.loss.LinearlyMinimizable;
 import org.apache.ignite.ml.trees.loss.LossFunction;
 import org.apache.ignite.ml.trees.models.BoostedTreesModel;
 import org.apache.ignite.ml.trees.models.DecisionTreeModel;
@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerInput,
                                                   I extends BoostingDecisionTreesTrainerInput<V>,
-                                                  F extends LossFunction & LinearMinimizible>
+                                                  F extends LossFunction & LinearlyMinimizable>
                     implements Trainer<BoostedTreesModel, I> {
     private Trainer<DecisionTreeModel, V> trainer;
     private Ignite ignite;
