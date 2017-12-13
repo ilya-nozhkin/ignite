@@ -10,20 +10,20 @@ import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
 public class LaplacianLoss implements LossFunction, LinearMinimizible {
     @Override
     public Vector computeGradient(Vector labels, Vector predictions) {
-        Vector gradient = new DenseLocalOnHeapVector();
+        Vector gradient = labels.minus(predictions);
         for (int i = 0; i < labels.size(); i++) {
-            double signum = Math.signum(labels.get(i) - predictions.get(i));
-            gradient.set(i, signum);
+            double value = gradient.get(i);
+            gradient.set(i, value * Math.signum(value));
         }
         return gradient;
     }
 
     @Override
     public Double apply(Vector labels, Vector predictions) {
+        Vector residual = labels.minus(predictions);
         double sum = 0.0;
         for (int i = 0; i < labels.size(); i++) {
-            double residual = labels.get(i) - predictions.get(i);
-            sum += Math.abs(residual);
+            sum += Math.abs(residual.get(i));
         }
         return sum;
     }
