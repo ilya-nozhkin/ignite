@@ -8,5 +8,4 @@ import org.apache.ignite.ml.math.functions.IgniteBiFunction;
  */
 public interface LossFunction extends IgniteBiFunction<Vector, Vector, Double> {
     Vector computeGradient(Vector labels, Vector predictions);
-    void linearMinimization();
 }

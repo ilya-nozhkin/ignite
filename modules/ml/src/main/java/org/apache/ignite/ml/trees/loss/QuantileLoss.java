@@ -7,7 +7,7 @@ import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
  * Created by Виктория on 12.12.2017.
  * Lq
  */
-public class QuantileLoss implements LossFunction {
+public class QuantileLoss implements LossFunction, LinearMinimizible {
     private double quantile = 0.25;
 
     public QuantileLoss(double quantile) {
@@ -28,11 +28,6 @@ public class QuantileLoss implements LossFunction {
     }
 
     @Override
-    public void linearMinimization() {
-        //todo
-    }
-
-    @Override
     public Double apply(Vector labels, Vector predictions) {
         double sum = 0;
         for (int i = 0; i < labels.size(); i++) {
@@ -41,5 +36,14 @@ public class QuantileLoss implements LossFunction {
             sum += residual;
         }
         return sum;
+    }
+
+    @Override
+    public double minimize(Vector point, Vector increment) {
+        double minimizeCoefficient = 0;
+        for (int i = 0; i < point.size(); i++) {
+            minimizeCoefficient -= point.get(i) * (1 / increment.get(i));
+        }
+        return minimizeCoefficient;
     }
 }
