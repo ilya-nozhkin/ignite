@@ -10,22 +10,13 @@ import org.apache.ignite.ml.math.impls.vector.DenseLocalOnHeapVector;
 public class GaussianLoss implements LossFunction, LinearMinimizible {
     @Override
     public Vector computeGradient(Vector labels, Vector predictions) {
-        Vector gradient = new DenseLocalOnHeapVector();
-        for (int i = 0; i < labels.size(); i++) {
-            double gradientValue = labels.get(i) - predictions.get(i);
-            gradient.set(i, gradientValue);
-        }
-        return gradient;
+        return labels.minus(predictions);
     }
 
     @Override
     public Double apply(Vector labels, Vector predictions) {
-        double sum = 0.0;
-        for (int i = 0; i < labels.size(); i++) {
-            double residual = labels.get(i) - predictions.get(i);
-            sum += residual * residual;
-        }
-        return sum;
+        Vector residual = labels.minus(predictions);
+        return residual.dot(residual);
     }
 
     @Override

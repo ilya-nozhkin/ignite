@@ -18,9 +18,9 @@ public class QuantileLoss implements LossFunction, LinearMinimizible {
 
     @Override
     public Vector computeGradient(Vector labels, Vector predictions) {
-        Vector gradient = new DenseLocalOnHeapVector();
+        Vector gradient = labels.minus(predictions);
         for (int i = 0; i < labels.size(); i++) {
-            double signum = Math.signum(labels.get(i) - predictions.get(i));
+            double signum = Math.signum(gradient.get(i));
             double gradientI = (signum == -1.0) ? quantile : (quantile - 1);
             gradient.set(i, gradientI);
         }
@@ -29,11 +29,11 @@ public class QuantileLoss implements LossFunction, LinearMinimizible {
 
     @Override
     public Double apply(Vector labels, Vector predictions) {
+        Vector residual = labels.minus(predictions);
         double sum = 0;
         for (int i = 0; i < labels.size(); i++) {
-            double residual = labels.get(i) - predictions.get(i);
-            residual = (residual < 0) ? (1 - quantile) * Math.abs(residual) : quantile * residual;
-            sum += residual;
+            double residualI = residual.get(i);
+            sum += (residualI < 0) ? (1 - quantile) * Math.abs(residualI) : quantile * residualI;
         }
         return sum;
     }
