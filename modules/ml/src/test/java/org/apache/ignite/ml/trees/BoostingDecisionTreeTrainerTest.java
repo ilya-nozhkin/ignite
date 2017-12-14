@@ -30,6 +30,7 @@ public class BoostingDecisionTreeTrainerTest extends BaseDecisionTreeTest {
         for (int i = 0; i < samplesCnt; i++) {
             data[0] = 5 * rnd.nextDouble() * Math.PI * 2.0;
             data[1] = Math.cos(data[0]) > 0 ? 1 : 0;
+            data[1] += Math.sin(data[0]) > 0 ? 1 : 0;
             samples.setRow(i, data);
         }
 
@@ -39,11 +40,11 @@ public class BoostingDecisionTreeTrainerTest extends BaseDecisionTreeTest {
             e.printStackTrace();
         }
 
-        GaussianLoss loss = new GaussianLoss();
+        GaussianLoss gauss = new GaussianLoss();
         LaplacianLoss lap = new LaplacianLoss();
         ColumnDecisionTreeTrainer baseTrainer = new ColumnDecisionTreeTrainer(4,
                 ContinuousSplitCalculators.VARIANCE, RegionCalculators.VARIANCE, RegionCalculators.MEAN, ignite);
-        GradientBoostingDecisionTreesTrainer trainer = new GradientBoostingDecisionTreesTrainer(baseTrainer, loss, ignite);
+        GradientBoostingDecisionTreesTrainer trainer = new GradientBoostingDecisionTreesTrainer(baseTrainer, lap, ignite);
 
         trainer.train(new ColumnBoostingDecisionTreesTrainerInput(new MatrixColumnDecisionTreeTrainerInput(samples, new HashMap<>())));
     }

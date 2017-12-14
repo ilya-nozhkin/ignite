@@ -32,7 +32,7 @@ public class GradientBoostingDecisionTreesTrainer<V extends DecisionTreeTrainerI
     private Trainer<DecisionTreeModel, V> trainer;
     private Ignite ignite;
     private F loss;
-    private int maxIterations = 10;
+    private int maxIterations = 100;
 
     public GradientBoostingDecisionTreesTrainer(Trainer<DecisionTreeModel, V> treeTrainer, F loss, Ignite ignite) {
         this.trainer = treeTrainer;

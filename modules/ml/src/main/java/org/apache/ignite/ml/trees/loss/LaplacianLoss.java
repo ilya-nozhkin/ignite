@@ -25,18 +25,23 @@ public class LaplacianLoss implements LossFunction, LinearlyMinimizable {
 
     @Override
     public double minimize(Vector labels, Vector predictions, Vector direction) {
-        double min = apply(labels, predictions);
-        double t = 0.01;
+        int dim = predictions.size();
+        Vector diff = labels.minus(predictions);
 
-        while (true) {
-            double cur = apply(labels, predictions.plus(direction.times(t)));
-            if (cur > min) {
-                break;
+        double mint = 0;
+        double minDist = apply(labels, predictions);
+
+        for (int i = 0; i < dim; i++) {
+            double t = diff.getX(i) / direction.getX(i);
+            if (!Double.isNaN(t)) {
+                double dist = apply(labels, direction.times(t).plus(predictions));
+                if (dist < minDist) {
+                    minDist = dist;
+                    mint = t;
+                }
             }
-
-            t += 0.01;
         }
 
-        return t / 2;
+        return mint;
     }
 }
